@@ -2,10 +2,65 @@
 
 #include <TL-Engine.h>	// TL-Engine include file and namespace
 
+
 using namespace tle;
 
-void carMovementFrontwards(I3DEngine* myEngine,IModel* Matchbox,IModel* MatchFront, IModel* MatchRear,
-float SteerAngle, float Speed)
+//Function Declarations
+bool collisionDetection(IModel* Model1, IModel* Model2, int& modelState);
+
+void carMovementFrontwards(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	float SteerAngle, float Speed);
+
+void carMovementBackwards(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	float SteerAngle, float Speed);
+
+void carSteeringRight(I3DEngine* myEngine, IModel* MatchFront,
+	float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease);
+
+void carSteeringLeft(I3DEngine* myEngine, IModel* MatchFront,
+	float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease);
+
+void updateCar(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	float Speed, float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease,
+	IModel* Bullet, int& carState);
+
+void carDynamics(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	float Speed, float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease);
+
+void carFSM(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear, IModel* Bullet, int& carState,
+	float Speed, float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease);
+
+void gameControls(I3DEngine* myEngine);
+
+
+//Function Definitions
+bool collisionDetection(IModel* Model1, IModel* Model2, int& modelState)
+{
+	bool collision = false;
+	//location of model1
+	float p1x = Model1->GetX();
+	float p1y = Model1->GetY();
+	float p1z = Model1->GetZ();
+
+	//location of model2
+	float p2x = Model2->GetX();
+	float p2y = Model2->GetY();
+	float p2z = Model2->GetZ();
+
+	//distance model1 and model2
+	float dx = p1x - p2x;
+	float dy = p1y - p2y;
+	float dz = p1z - p2z;
+	float collisionDist = sqrt(dx*dx + dy * dy + dz * dz);
+
+	if (collisionDist < 10) {
+		collision = true;
+	}
+	return collision;
+}
+
+void carMovementFrontwards(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	float SteerAngle, float Speed)
 {
 	//Makes the car move frontwards and also rolls the wheels.
 
@@ -37,7 +92,7 @@ void carMovementBackwards(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFr
 
 
 void carSteeringRight(I3DEngine* myEngine, IModel* MatchFront,
-	float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease){
+	float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease) {
 	if (myEngine->KeyHeld(Key_Right))
 	{
 		if (MatchFrontRot <= RotationLimit)
@@ -65,8 +120,17 @@ void carSteeringLeft(I3DEngine* myEngine, IModel* MatchFront,
 	}
 }
 
+void updateCar(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	float Speed, float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease,
+	IModel* Bullet, int& carState)
+{
+	carDynamics(myEngine, Matchbox, MatchFront, MatchRear, Speed, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease);
 
-void carControls(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
+	carFSM(myEngine, Matchbox, MatchFront, MatchRear, Bullet, carState, Speed, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease);
+}
+
+
+void carDynamics(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear,
 	float Speed, float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease)
 {
 	carMovementFrontwards(myEngine, Matchbox, MatchFront, MatchRear, SteerAngle, Speed);
@@ -78,6 +142,34 @@ void carControls(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IMod
 	carSteeringLeft(myEngine, MatchFront, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease);
 }
 
+void carFSM(I3DEngine* myEngine, IModel* Matchbox, IModel* MatchFront, IModel* MatchRear, IModel* Bullet, int& carState,
+	float Speed, float& MatchFrontRot, float RotationLimit, float RotationSpeed, float& SteerAngle, float SteerAngleIncrease)
+{
+	switch (carState)
+	{
+	case 0:
+	{
+		// Car is healthy. Control it with buttons.
+
+		// (a) Update:
+		carDynamics(myEngine, Matchbox, MatchFront, MatchRear, Speed, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease);
+
+		// (b) Transitions:
+		if (collisionDetection(Matchbox, Bullet, carState))
+			carState = 1;
+
+	}
+	break;
+	case 1:
+		// Car is broken. Do nothing.
+		myEngine->Stop();
+		// (a) Update 
+
+		// (b)
+		break;
+	}
+}
+
 
 void gameControls(I3DEngine* myEngine) {
 	if (myEngine->KeyHit(Key_Escape))
@@ -85,6 +177,9 @@ void gameControls(I3DEngine* myEngine) {
 		myEngine->Stop();
 	}
 }
+
+
+
 
 void main()
 {
@@ -148,7 +243,7 @@ void main()
 	TwoPenceRearR->MoveX(-MatchboxWidth - TyresOffset);
 	TwoPenceRearL->MoveX(MatchboxWidth + TyresOffset);
 
-	// Attach bullet to canon
+	// Attach bullet to cannon
 	Bullet->AttachToParent(Turret);
 
 	camera->AttachToParent(Matchbox);
@@ -160,9 +255,7 @@ void main()
 	float MatchFrontRot = 0.0f;
 	float SteerAngle = 0.0f;
 	float SteerAngleIncrease = 0.008f;
-	int carState = 1;
-
-	float collisionDist = 0;
+	int carState = 0;
 
 	// The main game loop, repeat until engine is stopped
 	while (myEngine->IsRunning())
@@ -172,54 +265,12 @@ void main()
 
 		/**** Update your scene each frame here ****/
 
-	//	carControls(myEngine, Matchbox, MatchFront, MatchRear, Speed, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease);
-		
+		//Update Turret
 		Turret->LookAt(Matchbox);
 		Bullet->MoveLocalZ(0.3);
 
-		// Collision Detection
-		//location of car
-		float p1x = Matchbox->GetX();
-		float p1y = Matchbox->GetY();
-		float p1z = Matchbox->GetZ();
-
-		//location of bullet
-		float p2x = Bullet->GetX();
-		float p2y = Bullet->GetY();
-		float p2z = Bullet->GetZ();
-
-		float dx = p1x - p2x;
-		float dy = p1y - p2y;
-		float dz = p1z - p2z;
-		collisionDist = sqrt(dx*dx + dy*dy + dz*dz);
-		
-		
-		
-		switch (carState)
-		{
-		case 1:
-		{
-			// Car is healthy. Control it with buttons.
-
-			// (a) Update:
-			carControls(myEngine, Matchbox, MatchFront, MatchRear, Speed, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease);
-
-			// (b) Transitions:
-		}
-			break;
-		case 0:
-			// Car is broken. Do nothing.
-
-			// (a) Update 
-
-			// (b)
-			   break;
-		}
-
-		if (collisionDist < 10) {
-			carState = 0;
-		}
-
+		updateCar(myEngine, Matchbox, MatchFront, MatchRear, Speed, MatchFrontRot, RotationLimit, RotationSpeed, SteerAngle, SteerAngleIncrease, Bullet, carState);
+	
 		gameControls(myEngine);
 	}
 
